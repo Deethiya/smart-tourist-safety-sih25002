@@ -1,113 +1,167 @@
-// This is our backend server - it listens for requests and sends back responses
+// This is our main backend server file
 
 const express = require('express');
 const cors = require('cors');
-const db = require('./database'); // This connects us to our database file
+const db = require('./database.js'); // connects to our SQLite database
 
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+// Allow frontend (running on a different port) to talk to us
 app.use(cors());
 
-// ===== HEALTH CHECK =====
+// Allow server to understand JSON data sent from frontend
+app.use(express.json());
+
+// Simple health check route - tells us the server is alive
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running fine!' });
+  res.json({
+    success: true,
+    message: 'Backend server is running!'
+  });
 });
-
-// ===== TOURISTS =====
-
-// GET all tourists
+// GET all tourists - frontend uses this to see the list of registered tourists
 app.get('/api/tourists', (req, res) => {
   db.all('SELECT * FROM tourists', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json({ success: true, tourists: rows });
   });
 });
 
-// POST a new tourist
+// POST a new tourist - frontend uses this to register a tourist
 app.post('/api/tourists', (req, res) => {
   const { name, phone, emergency_contact } = req.body;
-  db.run(
-    'INSERT INTO tourists (name, phone, emergency_contact) VALUES (?, ?, ?)',
-    [name, phone, emergency_contact],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, name, phone, emergency_contact });
+
+  if (!name || !phone) {
+    return res.status(400).json({ success: false, message: 'Name and phone are required' });
+  }
+
+  const sql = 'INSERT INTO tourists (name, phone, emergency_contact) VALUES (?, ?, ?)';
+  db.run(sql, [name, phone, emergency_contact || null], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
     }
-  );
+    res.json({
+      success: true,
+      message: 'Tourist added successfully',
+      touristId: this.lastID
+    });
+  });
 });
-
-// ===== LOCATIONS =====
-
-// GET all locations
+// GET all locations - frontend/map uses this to see where tourists are
 app.get('/api/locations', (req, res) => {
   db.all('SELECT * FROM locations', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json({ success: true, locations: rows });
   });
 });
 
-// POST a new location
+// POST a new location - frontend sends tourist's current GPS position
 app.post('/api/locations', (req, res) => {
   const { tourist_id, latitude, longitude } = req.body;
-  db.run(
-    'INSERT INTO locations (tourist_id, latitude, longitude) VALUES (?, ?, ?)',
-    [tourist_id, latitude, longitude],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, tourist_id, latitude, longitude });
+
+  if (!tourist_id || latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ success: false, message: 'tourist_id, latitude and longitude are required' });
+  }
+
+  const sql = 'INSERT INTO locations (tourist_id, latitude, longitude) VALUES (?, ?, ?)';
+  db.run(sql, [tourist_id, latitude, longitude], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
     }
-  );
+    res.json({
+      success: true,
+      message: 'Location saved successfully',
+      locationId: this.lastID
+    });
+  });
 });
-
-// ===== EMERGENCY ALERTS =====
-
-// GET all alerts
+// GET all alerts - dashboard team uses this to see emergency alerts
 app.get('/api/alerts', (req, res) => {
-  db.all('SELECT * FROM alerts', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+  db.all('SELECT * FROM alerts ORDER BY timestamp DESC', [], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json({ success: true, alerts: rows });
   });
 });
 
-// POST a new alert
+// POST a new alert - frontend sends this when tourist presses SOS button
 app.post('/api/alerts', (req, res) => {
   const { tourist_id, alert_type, message, latitude, longitude } = req.body;
-  db.run(
-    'INSERT INTO alerts (tourist_id, alert_type, message, latitude, longitude) VALUES (?, ?, ?, ?, ?)',
-    [tourist_id, alert_type, message, latitude, longitude],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, tourist_id, alert_type, message, latitude, longitude, status: 'pending' });
+
+  if (!tourist_id || !alert_type) {
+    return res.status(400).json({ success: false, message: 'tourist_id and alert_type are required' });
+  }
+
+  const sql = `INSERT INTO alerts (tourist_id, alert_type, message, latitude, longitude) 
+               VALUES (?, ?, ?, ?, ?)`;
+  db.run(sql, [tourist_id, alert_type, message || 'Emergency alert', latitude || null, longitude || null], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
     }
-  );
+    res.json({
+      success: true,
+      message: 'Emergency alert received',
+      alertId: this.lastID
+    });
+  });
 });
-
-// ===== INCIDENTS =====
-
-// GET all incidents
+// GET all incidents - dashboard team uses this to see reported incidents
 app.get('/api/incidents', (req, res) => {
-  db.all('SELECT * FROM incidents', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+  db.all('SELECT * FROM incidents ORDER BY timestamp DESC', [], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json({ success: true, incidents: rows });
   });
 });
 
-// POST a new incident
+// POST a new incident - frontend sends this when tourist reports a problem
 app.post('/api/incidents', (req, res) => {
   const { tourist_id, incident_type, description, latitude, longitude } = req.body;
-  db.run(
-    'INSERT INTO incidents (tourist_id, incident_type, description, latitude, longitude) VALUES (?, ?, ?, ?, ?)',
-    [tourist_id, incident_type, description, latitude, longitude],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, tourist_id, incident_type, description, latitude, longitude, status: 'open' });
+
+  if (!tourist_id || !incident_type) {
+    return res.status(400).json({ success: false, message: 'tourist_id and incident_type are required' });
+  }
+
+  const sql = `INSERT INTO incidents (tourist_id, incident_type, description, latitude, longitude) 
+               VALUES (?, ?, ?, ?, ?)`;
+  db.run(sql, [tourist_id, incident_type, description || null, latitude || null, longitude || null], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
     }
-  );
+    res.json({
+      success: true,
+      message: 'Incident reported successfully',
+      incidentId: this.lastID
+    });
+  });
+});
+// If someone requests a route that doesn't exist, send a clear message instead of a crash
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// This starts the server and makes it listen on port 3000
+// Catch-all error handler - if anything unexpected goes wrong, respond safely instead of crashing
+app.use((err, req, res, next) => {
+  console.error('Unexpected error:', err.message);
+  res.status(500).json({ success: false, message: 'Something went wrong on the server' });
+});
+
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running at http://localhost:${PORT}`);
 });
