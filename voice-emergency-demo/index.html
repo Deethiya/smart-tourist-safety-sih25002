@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Emergency Voice Assistant - Demo</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #1a1a2e;
+    color: white;
+    text-align: center;
+    padding: 40px;
+  }
+  h1 {
+    color: #ff4d4d;
+  }
+  #sosBtn {
+    background: red;
+    color: white;
+    font-size: 24px;
+    padding: 20px 40px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  #sosBtn:hover {
+    background: darkred;
+  }
+  #status {
+    margin-top: 30px;
+    font-size: 18px;
+    min-height: 30px;
+  }
+  #result {
+    margin-top: 20px;
+    padding: 20px;
+    background: #16213e;
+    border-radius: 10px;
+    display: none;
+  }
+  .emergency-type {
+    font-size: 22px;
+    font-weight: bold;
+    color: #ffcc00;
+  }
+</style>
+</head>
+<body>
+
+  <h1>🚨 Emergency Voice Assistant</h1>
+  <p>Press the button and speak your emergency</p>
+
+  <button id="sosBtn">🎤 PRESS FOR SOS</button>
+
+  <div id="status">Waiting...</div>
+
+  <div id="result">
+    <p><strong>You said:</strong> <span id="heardText"></span></p>
+    <p><strong>Detected Emergency:</strong> <span id="emergencyType" class="emergency-type"></span></p>
+    <p><strong>System Response:</strong> <span id="responseText"></span></p>
+  </div>
+
+<script>
+  const sosBtn = document.getElementById('sosBtn');
+  const statusDiv = document.getElementById('status');
+  const resultDiv = document.getElementById('result');
+  const heardText = document.getElementById('heardText');
+  const emergencyType = document.getElementById('emergencyType');
+  const responseText = document.getElementById('responseText');
+
+  // Check if browser supports Speech Recognition
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    statusDiv.innerText = "❌ Sorry, your browser does not support Speech Recognition. Please use Google Chrome.";
+    sosBtn.disabled = true;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  sosBtn.addEventListener('click', () => {
+    resultDiv.style.display = 'none';
+    statusDiv.innerText = "🎙️ Listening... Please speak now.";
+    recognition.start();
+  });
+
+  recognition.addEventListener('result', (event) => {
+    const transcript = event.results[0][0].transcript;
+    heardText.innerText = transcript;
+
+    const detected = detectEmergency(transcript.toLowerCase());
+    emergencyType.innerText = detected.type;
+    responseText.innerText = detected.response;
+
+    statusDiv.innerText = "✅ Emergency Detected!";
+    resultDiv.style.display = 'block';
+
+    speak(detected.response);
+  });
+
+  recognition.addEventListener('error', (event) => {
+    statusDiv.innerText = "⚠️ Error: " + event.error + ". Please try again.";
+  });
+
+  recognition.addEventListener('end', () => {
+    if (statusDiv.innerText === "🎙️ Listening... Please speak now.") {
+      statusDiv.innerText = "No speech detected. Try again.";
+    }
+  });
+
+  // Simple rule-based emergency classifier
+  function detectEmergency(text) {
+    if (text.includes("danger") || text.includes("attack") || text.includes("unsafe")) {
+      return {
+        type: "DANGER",
+        response: "Alert sent! Stay calm, help is on the way. Please move to a safe location if possible."
+      };
+    }
+    if (text.includes("medical") || text.includes("hurt") || text.includes("injured") || text.includes("sick") || text.includes("pain")) {
+      return {
+        type: "MEDICAL EMERGENCY",
+        response: "Medical alert sent! Please stay where you are. Emergency responders are being notified."
+      };
+    }
+    if (text.includes("lost")) {
+      return {
+        type: "LOST TOURIST",
+        response: "Your location is being sent to the nearest help center. Please stay where you are."
+      };
+    }
+    if (text.includes("help")) {
+      return {
+        type: "EMERGENCY",
+        response: "SOS Alert triggered! Your emergency contact and authorities are being notified immediately."
+      };
+    }
+    return {
+      type: "UNKNOWN - Please try again",
+      response: "Sorry, I did not understand the emergency. Please say something like 'I need help' or 'I am in danger'."
+    };
+  }
+
+  // Text to speech
+  function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  }
+</script>
+
+</body>
+</html>
