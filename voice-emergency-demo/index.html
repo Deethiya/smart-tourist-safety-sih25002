@@ -99,7 +99,35 @@
     statusDiv.innerText = "✅ Emergency Detected!";
     resultDiv.style.display = 'block';
 
-    speak(detected.response);
+// Build the alert object (a small package of data)
+    const alertObject = {
+      alert_type: detected.type,
+      message: transcript
+    };
+
+    console.log("Alert ready to send:", alertObject);
+    
+    // Send the alert to the backend
+    const BACKEND_URL = "http://localhost:3000/api/alerts";
+
+    fetch(BACKEND_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(alertObject)
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Backend response:", data);
+        statusDiv.innerText = "✅ Alert sent to backend successfully!";
+      })
+      .catch(error => {
+        console.log("Backend not reachable:", error.message);
+        statusDiv.innerText = "⚠️ Backend not connected (check server is running).";
+      });
+      
+      speak(detected.response);
   });
 
   recognition.addEventListener('error', (event) => {
