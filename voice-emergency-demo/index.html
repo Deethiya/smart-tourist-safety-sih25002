@@ -120,7 +120,7 @@
 // Build the alert object (a small package of data)
     const alertObject = {
       alert_type: detected.type,
-      tourist_id: "demo-tourist-001",
+      tourist_id: 1,
       message: transcript
     };
 
@@ -132,7 +132,8 @@
     fetch(BACKEND_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
       },
       body: JSON.stringify(alertObject)
     })
@@ -167,7 +168,7 @@
 
     const alertObject = {
       alert_type: detected.type,
-      tourist_id: "demo-tourist-001",
+      tourist_id: 1,
       message: transcript
     };
 
@@ -178,7 +179,8 @@
     fetch(BACKEND_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
       },
       body: JSON.stringify(alertObject)
     })
