@@ -30,6 +30,8 @@ function App() {
   const [sosResponse, setSosResponse] = useState(null)
   const [voiceActive, setVoiceActive] = useState(false)
   const [voiceTranscript, setVoiceTranscript] = useState(null)
+  const [emergencyType, setEmergencyType] = useState(null)
+  const [textInput, setTextInput] = useState("")
   const [emergencyActive, setEmergencyActive] = useState(false)
   const [sosSending, setSosSending] = useState(false)
   const [backendIncidents, setBackendIncidents] = useState(null)
@@ -102,7 +104,7 @@ function App() {
     setSosSending(true)
 
     const alertData = {
-     tourist_id: touristData.backendId,
+      tourist_id: touristData.backendId,
       alert_type: "SOS",
       name: touristData.name,
       location: "Shillong, Meghalaya (Demo Location)",
@@ -117,7 +119,11 @@ function App() {
       .then((res) => res.json())
       .then((data) => {
         console.log("SOS sent successfully:", data)
-        setSosResponse({ success: true, message: data.message || "Alert received. Help is on the way." })
+        if (data.success === false || data.error) {
+          setSosResponse({ success: false, message: data.message || data.error || "Could not send alert." })
+        } else {
+          setSosResponse({ success: true, message: data.message || "Alert received. Help is on the way." })
+        }
         setSosSending(false)
       })
       .catch((err) => {
@@ -129,17 +135,71 @@ function App() {
     setTimeout(() => setSosActive(false), 3000)
   }
 
+  function detectEmergencyType(text) {
+    const t = text.toLowerCase()
+    if (t.includes("medical") || t.includes("sick") || t.includes("pain") || t.includes("hurt") || t.includes("injured")) return "Medical"
+    if (t.includes("accident") || t.includes("crash") || t.includes("fall") || t.includes("fell")) return "Accident"
+    if (t.includes("lost") || t.includes("don't know where")) return "Lost tourist"
+    if (t.includes("danger") || t.includes("unsafe") || t.includes("scared") || t.includes("afraid") || t.includes("threat") || t.includes("help")) return "Unsafe situation"
+    return "Other"
+  }
+
+  function speakResponse(text) {
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+
+  function sendVoiceAlert(spokenText) {
+    const detectedType = detectEmergencyType(spokenText)
+    setEmergencyType(detectedType)
+
+    const voiceAlertData = {
+      tourist_id: touristData.backendId,
+      alert_type: detectedType,
+      name: touristData.name,
+      location: "Shillong, Meghalaya (Demo Location)",
+      message: spokenText || "Voice SOS triggered",
+      time: new Date().toISOString(),
+    }
+
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+      body: JSON.stringify(voiceAlertData),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Voice SOS sent successfully:", data)
+        if (data.success === false || data.error) {
+          setSosResponse({ success: false, message: data.message || data.error || "Could not send voice alert." })
+          speakResponse("Sorry, we could not send your alert. Please try again.")
+        } else {
+          const msg = data.message || "Voice alert received. Help is on the way."
+          setSosResponse({ success: true, message: msg })
+          speakResponse(`Emergency type ${detectedType} detected. ${msg}`)
+        }
+      })
+      .catch((err) => {
+        console.log("Voice SOS could not reach backend:", err)
+        setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
+        speakResponse("Could not reach the server. Your alert has been saved and will retry.")
+      })
+  }
+
   function handleVoiceSOS() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
     if (!SpeechRecognition) {
-      setVoiceTranscript("Voice recognition not supported in this browser. Please use Chrome.")
+      setVoiceTranscript("Voice recognition not supported in this browser. Please use Chrome or Edge, or type below.")
       return
     }
 
     setVoiceActive(true)
     setEmergencyActive(true)
     setVoiceTranscript("🎙️ Listening...")
+    setEmergencyType(null)
 
     const recognition = new SpeechRecognition()
     recognition.lang = "en-IN"
@@ -148,38 +208,14 @@ function App() {
 
     recognition.onresult = (event) => {
       const spokenText = event.results[0][0].transcript
-
       setVoiceTranscript(`You said: "${spokenText}"`)
-
-      const voiceAlertData = {
-        tourist_id: touristData.id,
-        alert_type: "voice",
-        name: touristData.name,
-        location: "Shillong, Meghalaya (Demo Location)",
-        message: spokenText || "Voice SOS triggered",
-        time: new Date().toISOString(),
-      }
-
-      fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-        body: JSON.stringify(voiceAlertData),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("Voice SOS sent successfully:", data)
-          setSosResponse({ success: true, message: data.message || "Voice alert received. Help is on the way." })
-        })
-        .catch((err) => {
-          console.log("Voice SOS could not reach backend:", err)
-          setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
-        })
+      sendVoiceAlert(spokenText)
     }
 
     recognition.onerror = (event) => {
       console.log("Speech recognition error:", event.error)
       if (event.error !== "aborted") {
-        setVoiceTranscript("Could not hear you clearly. Please try again.")
+        setVoiceTranscript("Could not hear you clearly. Please try again or type below.")
       }
     }
 
@@ -189,6 +225,16 @@ function App() {
 
     recognition.start()
 
+    setTimeout(() => setEmergencyActive(false), 5000)
+  }
+
+  function handleTextSubmit() {
+    if (!textInput.trim()) return
+    setVoiceTranscript(`You typed: "${textInput}"`)
+    setEmergencyActive(true)
+    setEmergencyType(null)
+    sendVoiceAlert(textInput)
+    setTextInput("")
     setTimeout(() => setEmergencyActive(false), 5000)
   }
 
@@ -237,6 +283,20 @@ function App() {
               <h3>🎙️ Voice Emergency Module</h3>
               <div className="map-box">
                 {voiceTranscript || "Tap \"Voice SOS\" above and speak your emergency"}
+              </div>
+              {emergencyType && (
+                <p><strong>Detected Emergency:</strong> {emergencyType}</p>
+              )}
+              <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+            <input
+                  type="text"
+                  id="textInput"
+                  placeholder="Or type your emergency, e.g. I am lost"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                />
+                <button onClick={handleTextSubmit} className="call-btn">Send</button>
               </div>
             </div>
 
