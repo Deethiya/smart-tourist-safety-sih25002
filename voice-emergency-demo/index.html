@@ -88,6 +88,17 @@
     recognition.start();
   });
 
+  // ============================================
+  // 🔌 REUSABLE FUNCTION FOR FRONTEND TEAM
+  // Call startVoiceEmergency() from anywhere to
+  // trigger the voice emergency detection flow.
+  // ============================================
+  function startVoiceEmergency() {
+    resultDiv.style.display = 'none';
+    statusDiv.innerText = "🎙️ Listening... Please speak now.";
+    recognition.start();
+  }
+
   recognition.addEventListener('result', (event) => {
     const transcript = event.results[0][0].transcript;
     heardText.innerText = transcript;
