@@ -44,7 +44,8 @@ function App() {
 
 
     const alertData = {
-      touristId: touristData.id,
+tourist_id: touristData.id,
+      alert_type: "SOS",
       name: touristData.name,
       location: "Shillong, Meghalaya (Demo Location)",
       message: "Emergency SOS triggered",
@@ -72,7 +73,8 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
     setEmergencyActive(true)
 
     const voiceAlertData = {
-      touristId: touristData.id,
+    tourist_id: touristData.id,
+      alert_type: "voice",
       name: touristData.name,
       location: "Shillong, Meghalaya (Demo Location)",
       message: "Voice SOS triggered",
