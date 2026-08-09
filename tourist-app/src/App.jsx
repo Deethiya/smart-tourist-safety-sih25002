@@ -30,7 +30,9 @@ function App() {
 
 
   useEffect(() => {
-    fetch("http://localhost:3000/api/health")
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/health", {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    })
       .then((res) => res.json())
       .then((data) => setBackendStatus("Connected ✅"))
       .catch(() => setBackendStatus("Not Connected ❌ (backend offline)"))
@@ -48,10 +50,9 @@ function App() {
       message: "Emergency SOS triggered",
       time: new Date().toISOString(),
     }
-
-    fetch("http://localhost:3000/api/alerts", {
+fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
       body: JSON.stringify(alertData),
     })
       .then((res) => res.json())
@@ -78,9 +79,9 @@ function App() {
       time: new Date().toISOString(),
     }
 
-    fetch("http://localhost:3000/api/alerts", {
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+     headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
       body: JSON.stringify(voiceAlertData),
     })
       .then((res) => res.json())
