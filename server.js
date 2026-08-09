@@ -213,17 +213,28 @@ app.post('/api/incidents', (req, res) => {
     return res.status(400).json({ success: false, message: 'tourist_id and incident_type are required' });
   }
 
-  const sql = `INSERT INTO incidents (tourist_id, incident_type, description, latitude, longitude) 
-               VALUES (?, ?, ?, ?, ?)`;
-  db.run(sql, [tourist_id, incident_type, description || null, latitude || null, longitude || null], function (err) {
+  // Check the tourist actually exists before saving their incident
+  db.get('SELECT id FROM tourists WHERE id = ?', [tourist_id], (err, tourist) => {
     if (err) {
       console.error(err.message);
       return res.status(500).json({ success: false, message: 'Database error' });
     }
-    res.json({
-      success: true,
-      message: 'Incident reported successfully',
-      incidentId: this.lastID
+    if (!tourist) {
+      return res.status(404).json({ success: false, message: 'Tourist not found' });
+    }
+
+    const sql = `INSERT INTO incidents (tourist_id, incident_type, description, latitude, longitude) 
+                 VALUES (?, ?, ?, ?, ?)`;
+    db.run(sql, [tourist_id, incident_type, description || null, latitude || null, longitude || null], function (err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+      res.json({
+        success: true,
+        message: 'Incident reported successfully',
+        incidentId: this.lastID
+      });
     });
   });
 });
