@@ -23,10 +23,15 @@ const recentAlerts = [
 function App() {
   const [screen, setScreen] = useState("home")
   const [sosActive, setSosActive] = useState(false)
+  const [backendAlerts, setBackendAlerts] = useState(null)
   const [backendStatus, setBackendStatus] = useState("checking...")
   const [sosResponse, setSosResponse] = useState(null)
   const [voiceActive, setVoiceActive] = useState(false)
+  const [voiceTranscript, setVoiceTranscript] = useState(null)
   const [emergencyActive, setEmergencyActive] = useState(false)
+ const [sosSending, setSosSending] = useState(false) 
+ const [backendIncidents, setBackendIncidents] = useState(null)
+ 
 
 
   useEffect(() => {
@@ -36,12 +41,44 @@ function App() {
       .then((res) => res.json())
       .then((data) => setBackendStatus("Connected ✅"))
       .catch(() => setBackendStatus("Not Connected ❌ (backend offline)"))
+  }, []) 
+
+  useEffect(() => {
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const alertsArray = Array.isArray(data) ? data : data.alerts
+        if (alertsArray && alertsArray.length > 0) {
+          setBackendAlerts(alertsArray)
+        }
+      })
+      .catch((err) => {
+        console.log("Could not load alerts from backend, using demo alerts:", err)
+      })
   }, [])
 
-  function handleSOS() {
+  useEffect(() => {
+     fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/incidents", {
+       headers: { "ngrok-skip-browser-warning": "true" },
+     })
+       .then((res) => res.json())
+       .then((data) => {
+         const incidentsArray = Array.isArray(data) ? data : data.incidents
+         if (incidentsArray && incidentsArray.length > 0) {
+           setBackendIncidents(incidentsArray)
+         }
+       })
+       .catch((err) => {
+         console.log("Could not load incidents from backend, using demo warnings:", err)
+       })
+   }, [])
+
+function handleSOS() {
     setSosActive(true)
     setEmergencyActive(true)
-
+    setSosSending(true)
 
     const alertData = {
 tourist_id: touristData.id,
@@ -56,47 +93,80 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
       headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
       body: JSON.stringify(alertData),
     })
-      .then((res) => res.json())
+.then((res) => res.json())
       .then((data) => {
         console.log("SOS sent successfully:", data)
         setSosResponse({ success: true, message: data.message || "Alert received. Help is on the way." })
+        setSosSending(false)
       })
       .catch((err) => {
         console.log("SOS could not reach backend (this is expected if not integrated yet):", err)
         setSosResponse({ success: false, message: "Could not reach server. Alert saved locally, will retry." })
+        setSosSending(false)
       })
 
     setTimeout(() => setSosActive(false), 3000)
     }
-    function handleVoiceSOS() {
-    setVoiceActive(true)
-    setEmergencyActive(true)
+function handleVoiceSOS() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
-    const voiceAlertData = {
-    tourist_id: touristData.id,
-      alert_type: "voice",
-      name: touristData.name,
-      location: "Shillong, Meghalaya (Demo Location)",
-      message: "Voice SOS triggered",
-      time: new Date().toISOString(),
+    if (!SpeechRecognition) {
+      setVoiceTranscript("Voice recognition not supported in this browser. Please use Chrome.")
+      return
     }
 
-    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
-      method: "POST",
-     headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-      body: JSON.stringify(voiceAlertData),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Voice SOS sent successfully:", data)
-        setSosResponse({ success: true, message: data.message || "Voice alert received. Help is on the way." })
-      })
-      .catch((err) => {
-        console.log("Voice SOS could not reach backend:", err)
-        setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
-      })
+    setVoiceActive(true)
+    setEmergencyActive(true)
+    setVoiceTranscript("🎙️ Listening...")
 
-    setTimeout(() => setVoiceActive(false), 2000)
+    const recognition = new SpeechRecognition()
+    recognition.lang = "en-IN"
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    recognition.onresult = (event) => {
+      const spokenText = event.results[0][0].transcript
+
+      setVoiceTranscript(`You said: "${spokenText}"`)
+
+      const voiceAlertData = {
+        tourist_id: touristData.id,
+        alert_type: "voice",
+        name: touristData.name,
+        location: "Shillong, Meghalaya (Demo Location)",
+        message: spokenText || "Voice SOS triggered",
+        time: new Date().toISOString(),
+      }
+
+      fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+        body: JSON.stringify(voiceAlertData),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Voice SOS sent successfully:", data)
+          setSosResponse({ success: true, message: data.message || "Voice alert received. Help is on the way." })
+        })
+        .catch((err) => {
+          console.log("Voice SOS could not reach backend:", err)
+          setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
+        })
+    }
+
+    recognition.onerror = (event) => {
+     console.log("Speech recognition error:", event.error)
+     if (event.error !== "aborted") {
+       setVoiceTranscript("Could not hear you clearly. Please try again.")
+     }
+   }
+
+    recognition.onend = () => {
+      setVoiceActive(false)
+    }
+
+    recognition.start()
+
     setTimeout(() => setEmergencyActive(false), 5000)
   }
 
@@ -126,7 +196,7 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
               className={`sos-button ${sosActive ? "sos-active" : ""}`}
               onClick={handleSOS}
             >
-              {sosActive ? "ALERT SENT ✔" : "SOS"}
+              {sosActive ? "ALERT SENT ✔" : sosSending ? "Sending..." : "SOS"}
             </button>
             <p className="sos-hint">Press in case of emergency</p>
            <button
@@ -137,14 +207,12 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
             </button>
             <p className="sos-hint">Tap and speak your emergency</p>
 
-            <div className="card voice-placeholder">
+<div className="card voice-placeholder">
               <h3>🎙️ Voice Emergency Module</h3>
               <div className="map-box">
-                Voice recognition will appear here once integrated
-                <br />
-                (from feature/ai-voice-emergency)
+                {voiceTranscript || "Tap \"Voice SOS\" above and speak your emergency"}
               </div>
-            </div> 
+            </div>
 
             {sosResponse && (
               <div className={`sos-response ${sosResponse.success ? "sos-success" : "sos-warning"}`}>
@@ -161,23 +229,40 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
      <p>Shillong, Meghalaya (Demo Location)</p>
    </div>
 
-           <div className="card map-placeholder">
-     <h3>🗺️ Live Map</h3>
-     <div className="map-box">
-       {emergencyActive ? "📍 Alert location marked on map" : "Map will appear here once integrated"}
-       <br />
-       (from feature/maps-geofence-dashboard)
-     </div>
-   </div>
+  <div className="card map-placeholder">
+              <h3>🗺️ Live Map</h3>
+              {emergencyActive && (
+                <div className="map-alert-text">📍 Alert location marked on map</div>
+              )}
+              <iframe
+                title="Tourist Location Map"
+                className="live-map-frame"
+                loading="lazy"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=91.85,25.55,91.93,25.61&marker=25.5788,91.8933"
+              ></iframe>
+              <p className="map-note">
+                Demo location: Shillong, Meghalaya — will be replaced with live GPS + geofencing from feature/maps-geofence-dashboard
+              </p>
+            </div>
 
-            <div className="card">
+<div className="card">
               <h3>🔔 Recent Alerts</h3>
-              {recentAlerts.map((alert) => (
-                <div key={alert.id} className="alert-item">
-                  <strong>{alert.type}:</strong> {alert.message}
-                  <div className="alert-time">{alert.time}</div>
-                </div>
-              ))}
+              {backendAlerts
+                ? backendAlerts.slice(0, 5).map((alert, i) => (
+                    <div key={alert.id || i} className="alert-item">
+                      <strong>{alert.alert_type || alert.type || "Alert"}:</strong>{" "}
+                      {alert.message}
+                      <div className="alert-time">
+                        {alert.time ? new Date(alert.time).toLocaleString() : ""}
+                      </div>
+                    </div>
+                  ))
+                : recentAlerts.map((alert) => (
+                    <div key={alert.id} className="alert-item">
+                      <strong>{alert.type}:</strong> {alert.message}
+                      <div className="alert-time">{alert.time}</div>
+                    </div>
+                  ))}
             </div>
           </div>
         )}
@@ -190,10 +275,23 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
               <p className="safety-score">85 / 100</p>
               <p>You are in a generally safe zone.</p>
             </div>
-            <div className="card">
-              <h3>⚠️ Warnings</h3>
-              <p>No active warnings for your area.</p>
-            </div>
+           <div className="card">
+                <h3>⚠️ Warnings</h3>
+                {backendIncidents && backendIncidents.filter((i) => i.status === "open").length > 0 ? (
+                  backendIncidents
+                    .filter((i) => i.status === "open")
+                    .map((incident) => (
+                      <div key={incident.id} className="alert-item">
+                        <strong>{incident.incident_type}:</strong> {incident.description}
+                        <div className="alert-time">
+                          {incident.timestamp ? new Date(incident.timestamp).toLocaleString() : ""}
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <p>No active warnings for your area.</p>
+                )}
+              </div>
           </div>
         )}
 

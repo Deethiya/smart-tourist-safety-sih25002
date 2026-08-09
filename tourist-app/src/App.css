@@ -54,7 +54,7 @@ body {
   background: #eef2ff;
   padding: 14px;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .avatar {
@@ -113,17 +113,22 @@ body {
 }
 
 .card {
-  background: #f8fafc;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 14px;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 }
 
 .card h3 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 15px;
+  font-weight: 600;
   color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .alert-item {
@@ -132,6 +137,10 @@ body {
   font-size: 13px;
   color: #334155;
 }
+
+.alert-item strong {
+     text-transform: capitalize;
+   }
 
 .alert-item:last-child {
   border-bottom: none;
@@ -191,13 +200,16 @@ body {
   font-size: 11px;
   color: #64748b;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px 14px;
   line-height: 1.6;
+  border-radius: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .bottom-nav button.active {
   color: #2563eb;
   font-weight: bold;
+  background: #eef2ff;
 }
 .map-box {
      height: 160px;
@@ -213,3 +225,82 @@ body {
      padding: 10px;
    }
    
+   .emergency-banner {
+  background: #dc2626;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.voice-button {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin: 10px auto;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.voice-button:active {
+  transform: scale(0.97);
+}
+
+.voice-active {
+  background: #7c3aed;
+}
+
+.sos-response {
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.sos-success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.sos-warning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.map-placeholder,
+.voice-placeholder {
+  margin-bottom: 14px;
+}
+.live-map-frame {
+  width: 100%;
+  height: 180px;
+  border: none;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.map-alert-text {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.map-note {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 6px;
+}
