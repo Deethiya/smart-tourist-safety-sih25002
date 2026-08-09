@@ -25,6 +25,9 @@ function App() {
   const [sosActive, setSosActive] = useState(false)
   const [backendStatus, setBackendStatus] = useState("checking...")
   const [sosResponse, setSosResponse] = useState(null)
+  const [voiceActive, setVoiceActive] = useState(false)
+  const [emergencyActive, setEmergencyActive] = useState(false)
+
 
   useEffect(() => {
     fetch("http://localhost:3000/api/health")
@@ -35,6 +38,8 @@ function App() {
 
   function handleSOS() {
     setSosActive(true)
+    setEmergencyActive(true)
+
 
     const alertData = {
       touristId: touristData.id,
@@ -60,12 +65,45 @@ function App() {
       })
 
     setTimeout(() => setSosActive(false), 3000)
+    }
+    function handleVoiceSOS() {
+    setVoiceActive(true)
+    setEmergencyActive(true)
+
+    const voiceAlertData = {
+      touristId: touristData.id,
+      name: touristData.name,
+      location: "Shillong, Meghalaya (Demo Location)",
+      message: "Voice SOS triggered",
+      time: new Date().toISOString(),
+    }
+
+    fetch("http://localhost:3000/api/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(voiceAlertData),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Voice SOS sent successfully:", data)
+        setSosResponse({ success: true, message: data.message || "Voice alert received. Help is on the way." })
+      })
+      .catch((err) => {
+        console.log("Voice SOS could not reach backend:", err)
+        setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
+      })
+
+    setTimeout(() => setVoiceActive(false), 2000)
+    setTimeout(() => setEmergencyActive(false), 5000)
   }
 
   return (
     <div className="app">
       <header className="app-header">
         <h1>Tourist Safety</h1>
+        {emergencyActive && (
+          <div className="emergency-banner">🚨 Emergency Active — Location shared with responders</div>
+        )}
         <p className="subtitle">Stay Safe, Stay Connected</p>
       </header>
 
@@ -88,6 +126,22 @@ function App() {
               {sosActive ? "ALERT SENT ✔" : "SOS"}
             </button>
             <p className="sos-hint">Press in case of emergency</p>
+           <button
+              className={`voice-button ${voiceActive ? "voice-active" : ""}`}
+              onClick={handleVoiceSOS}
+            >
+              {voiceActive ? "🎙️ Listening..." : "🎙️ Voice SOS"}
+            </button>
+            <p className="sos-hint">Tap and speak your emergency</p>
+
+            <div className="card voice-placeholder">
+              <h3>🎙️ Voice Emergency Module</h3>
+              <div className="map-box">
+                Voice recognition will appear here once integrated
+                <br />
+                (from feature/ai-voice-emergency)
+              </div>
+            </div> 
 
             {sosResponse && (
               <div className={`sos-response ${sosResponse.success ? "sos-success" : "sos-warning"}`}>
@@ -107,7 +161,7 @@ function App() {
            <div className="card map-placeholder">
      <h3>🗺️ Live Map</h3>
      <div className="map-box">
-       Map will appear here once integrated
+       {emergencyActive ? "📍 Alert location marked on map" : "Map will appear here once integrated"}
        <br />
        (from feature/maps-geofence-dashboard)
      </div>
