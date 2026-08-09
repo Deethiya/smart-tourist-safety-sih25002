@@ -237,37 +237,37 @@ recognition.addEventListener('error', (event) => {
   function detectEmergency(text) {
     if (text.includes("accident") || text.includes("crash") || text.includes("collision")) {
       return {
-        type: "ACCIDENT",
+        type: "Accident",
         response: "Accident alert sent! Please stay calm. Emergency responders are being notified of your location."
       };
     }
     if (text.includes("danger") || text.includes("attack") || text.includes("unsafe") || text.includes("threat")) {
       return {
-        type: "DANGER",
-        response: "Danger alert sent! Stay calm, help is on the way. Please move to a safe location if possible."
+        type: "Unsafe situation",
+        response: "Alert sent! Stay calm, help is on the way. Please move to a safe location if possible."
       };
     }
     if (text.includes("medical") || text.includes("hurt") || text.includes("injured") || text.includes("sick") || text.includes("pain") || text.includes("doctor")) {
       return {
-        type: "MEDICAL",
+        type: "Medical",
         response: "Medical alert sent! Please stay where you are. Emergency responders are being notified."
       };
     }
     if (text.includes("lost")) {
       return {
-        type: "LOST",
+        type: "Lost tourist",
         response: "Your location is being sent to the nearest help center. Please stay where you are."
       };
     }
     if (text.includes("help") || text.includes("emergency") || text.includes("sos")) {
       return {
-        type: "GENERAL EMERGENCY",
+        type: "Other",
         response: "SOS Alert triggered! Your emergency contact and authorities are being notified immediately."
       };
     }
     return {
-      type: "UNKNOWN - Please try again",
-      response: "Sorry, I did not understand the emergency. Please say something like 'I need help' or 'I am in danger'."
+      type: "Other",
+      response: "Sorry, I did not fully understand. Please say something like 'I need help' or 'I am in danger'."
     };
   }
 
