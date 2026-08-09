@@ -30,6 +30,21 @@ app.get('/api/tourists', (req, res) => {
     res.json({ success: true, tourists: rows });
   });
 });
+// GET one tourist by their ID - AI voice team uses this to quickly look up tourist details
+app.get('/api/tourists/:id', (req, res) => {
+  const { id } = req.params;
+
+  db.get('SELECT * FROM tourists WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Tourist not found' });
+    }
+    res.json({ success: true, tourist: row });
+  });
+});
 
 // POST a new tourist - frontend uses this to register a tourist
 app.post('/api/tourists', (req, res) => {
@@ -60,6 +75,22 @@ app.get('/api/locations', (req, res) => {
       return res.status(500).json({ success: false, message: 'Database error' });
     }
     res.json({ success: true, locations: rows });
+  });
+});
+// GET a tourist's latest/current location - maps team uses this to show live position
+app.get('/api/locations/latest/:tourist_id', (req, res) => {
+  const { tourist_id } = req.params;
+
+  const sql = `SELECT * FROM locations WHERE tourist_id = ? ORDER BY timestamp DESC LIMIT 1`;
+  db.get(sql, [tourist_id], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'No location found for this tourist' });
+    }
+    res.json({ success: true, location: row });
   });
 });
 
@@ -114,6 +145,30 @@ app.post('/api/alerts', (req, res) => {
       success: true,
       message: 'Emergency alert received',
       alertId: this.lastID
+    });
+  });
+});
+// PUT (update) an alert's status - dashboard team uses this to mark an alert as resolved
+app.put('/api/alerts/:id', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ success: false, message: 'status is required' });
+  }
+
+  const sql = 'UPDATE alerts SET status = ? WHERE id = ?';
+  db.run(sql, [status, id], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ success: false, message: 'Alert not found' });
+    }
+    res.json({
+      success: true,
+      message: 'Alert status updated successfully'
     });
   });
 });
