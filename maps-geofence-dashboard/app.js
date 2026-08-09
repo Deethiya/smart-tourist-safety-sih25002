@@ -87,7 +87,7 @@ if (navigator.geolocation) {
       touristMarker.setLatLng([touristLat, touristLng]);
       map.setView([touristLat, touristLng], 14);
 
-      checkGeofence();
+      checkGeofence();  
     },
     (error) => {
       console.log('GPS not available, using demo location instead.', error);
@@ -129,6 +129,7 @@ function checkGeofence() {
     statusDiv.textContent = 'Status: DANGER! You are in a restricted zone';
     statusDiv.className = 'emergency';
     alert('⚠️ WARNING: You have entered a DANGER ZONE!');
+    sendAlertToBackend(touristLat, touristLng);
   } else if (distanceToDanger <= dangerZoneRadius + 200) {
     // Close to danger zone
     statusDiv.textContent = 'Status: WARNING - Near a restricted zone';
@@ -139,6 +140,42 @@ function checkGeofence() {
     statusDiv.className = 'safe';
   }
 }
+// =======================
+// 7. SEND ALERT TO BACKEND
+// =======================
 
+// This is where the backend teammate's server will run.
+// For now, we use localhost (their local test server) — we'll update this
+// once they give us the real server address.
+const BACKEND_URL = 'https://mocker-fasting-squealer.ngrok-free.dev/api/alerts';
+
+function sendAlertToBackend(lat, lng) {
+  // Build the alert object (a simple package of data)
+  const alertData = {
+    alert_type: 'geofence',
+    tourist_id: 'demo-tourist-001',
+    message: 'Tourist entered danger zone',
+    latitude: lat,
+    longitude: lng,
+  };
+
+  console.log('Sending alert to backend:', alertData);
+
+  fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    },
+    body: JSON.stringify(alertData),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log('Backend confirmed alert received:', data);
+    })
+    .catch((error) => {
+      console.log('Could not reach backend (this is OK for now if backend is not running yet):', error);
+    });
+}
 // Run once immediately using demo location too
 checkGeofence();
