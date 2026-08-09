@@ -5,11 +5,11 @@ Listens to the tourist's voice (or typed text as backup), detects emergency type
 shows it on screen, sends it to the backend, and speaks a response back to the user.
 
 ## Emergency categories detected
-- DANGER
-- MEDICAL
-- LOST
-- ACCIDENT
-- GENERAL EMERGENCY
+- Unsafe situation
+- Medical
+- Accident
+- Lost tourist
+- Other
 
 ## Files you need
 Copy this file into your project:
@@ -53,7 +53,7 @@ If voice doesn't work, users can type instead. Include this in your page:
 ```json
 POST https://mocker-fasting-squealer.ngrok-free.dev/api/alerts
 {
-  "alert_type": "DANGER",
+  "alert_type": "Unsafe situation",
   "tourist_id": "demo-tourist-001",
   "message": "I am in danger"
 }
