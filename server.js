@@ -102,16 +102,27 @@ app.post('/api/locations', (req, res) => {
     return res.status(400).json({ success: false, message: 'tourist_id, latitude and longitude are required' });
   }
 
-  const sql = 'INSERT INTO locations (tourist_id, latitude, longitude) VALUES (?, ?, ?)';
-  db.run(sql, [tourist_id, latitude, longitude], function (err) {
+  // Check the tourist actually exists before saving their location
+  db.get('SELECT id FROM tourists WHERE id = ?', [tourist_id], (err, tourist) => {
     if (err) {
       console.error(err.message);
       return res.status(500).json({ success: false, message: 'Database error' });
     }
-    res.json({
-      success: true,
-      message: 'Location saved successfully',
-      locationId: this.lastID
+    if (!tourist) {
+      return res.status(404).json({ success: false, message: 'Tourist not found' });
+    }
+
+    const sql = 'INSERT INTO locations (tourist_id, latitude, longitude) VALUES (?, ?, ?)';
+    db.run(sql, [tourist_id, latitude, longitude], function (err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+      res.json({
+        success: true,
+        message: 'Location saved successfully',
+        locationId: this.lastID
+      });
     });
   });
 });
@@ -134,17 +145,28 @@ app.post('/api/alerts', (req, res) => {
     return res.status(400).json({ success: false, message: 'tourist_id and alert_type are required' });
   }
 
-  const sql = `INSERT INTO alerts (tourist_id, alert_type, message, latitude, longitude) 
-               VALUES (?, ?, ?, ?, ?)`;
-  db.run(sql, [tourist_id, alert_type, message || 'Emergency alert', latitude || null, longitude || null], function (err) {
+  // Check the tourist actually exists before saving their alert
+  db.get('SELECT id FROM tourists WHERE id = ?', [tourist_id], (err, tourist) => {
     if (err) {
       console.error(err.message);
       return res.status(500).json({ success: false, message: 'Database error' });
     }
-    res.json({
-      success: true,
-      message: 'Emergency alert received',
-      alertId: this.lastID
+    if (!tourist) {
+      return res.status(404).json({ success: false, message: 'Tourist not found' });
+    }
+
+    const sql = `INSERT INTO alerts (tourist_id, alert_type, message, latitude, longitude) 
+                 VALUES (?, ?, ?, ?, ?)`;
+    db.run(sql, [tourist_id, alert_type, message || 'Emergency alert', latitude || null, longitude || null], function (err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+      res.json({
+        success: true,
+        message: 'Emergency alert received',
+        alertId: this.lastID
+      });
     });
   });
 });
