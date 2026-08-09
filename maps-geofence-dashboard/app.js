@@ -20,25 +20,59 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // 2. SAMPLE ZONES (DEMO DATA)
 // =======================
 
-// SAFE ZONE (green circle)
-const safeZone = L.circle([28.6139, 77.2090], {
-  color: 'green',
-  fillColor: '#3f3',
-  fillOpacity: 0.2,
-  radius: 400,
-}).addTo(map).bindPopup('SAFE ZONE');
+// =======================
+// ZONES DATA (all zones in one place - easy to edit/share)
+// =======================
 
-// DANGER ZONE (red circle)
-const dangerZoneCenter = [28.6165, 77.2135];
-const dangerZoneRadius = 300; // meters
+const zonesData = {
+  safeZones: [
+    { name: 'Safe Zone 1', center: [28.6139, 77.2090], radius: 400 },
+    { name: 'Safe Zone 2', center: [28.6100, 77.2200], radius: 350 },
+  ],
+  dangerZones: [
+    { name: 'Danger Zone 1', center: [28.6165, 77.2135], radius: 300 },
+    { name: 'Danger Zone 2', center: [28.6080, 77.2160], radius: 250 },
+  ],
+};
 
-const dangerZone = L.circle(dangerZoneCenter, {
-  color: 'red',
-  fillColor: '#f33',
-  fillOpacity: 0.3,
-  radius: dangerZoneRadius,
-}).addTo(map).bindPopup('DANGER ZONE');
+// Draw all safe zones
+zonesData.safeZones.forEach((zone) => {
+  L.circle(zone.center, {
+    color: 'green',
+    fillColor: '#3f3',
+    fillOpacity: 0.2,
+    radius: zone.radius,
+  }).addTo(map)
+    .bindPopup(zone.name)
+    .bindTooltip(zone.name, { permanent: true, direction: 'center', className: 'zone-label safe-label' });
+});
 
+// Draw all danger zones + their warning buffer ring
+zonesData.dangerZones.forEach((zone) => {
+  // Outer warning buffer ring (dashed orange)
+  L.circle(zone.center, {
+    color: 'orange',
+    fillColor: 'transparent',
+    fillOpacity: 0,
+    radius: zone.radius + 200,
+    dashArray: '6, 6',
+    weight: 2,
+  }).addTo(map).bindPopup(zone.name + ' - Warning Buffer');
+
+  // Actual danger zone (solid red)
+  L.circle(zone.center, {
+    color: 'red',
+    fillColor: '#f33',
+    fillOpacity: 0.3,
+    radius: zone.radius,
+  }).addTo(map)
+    .bindPopup(zone.name)
+    .bindTooltip(zone.name, { permanent: true, direction: 'center', className: 'zone-label danger-label' });
+});
+
+// Keep these variables for backward compatibility with geofence detection below
+const dangerZoneCenter = zonesData.dangerZones[0].center;
+const dangerZoneRadius = zonesData.dangerZones[0].radius;
 
 // =======================
 // 3. EMERGENCY MARKERS (DEMO DATA)
@@ -87,19 +121,20 @@ if (navigator.geolocation) {
       touristMarker.setLatLng([touristLat, touristLng]);
       map.setView([touristLat, touristLng], 14);
 
+      document.getElementById('locationSource').textContent = '📍 Using real GPS location';
       checkGeofence();  
     },
     (error) => {
       console.log('GPS not available, using demo location instead.', error);
+      document.getElementById('locationSource').textContent = '🧭 Using demo location (GPS unavailable/denied)';
       checkGeofence();
     }
   );
 } else {
   console.log('Geolocation not supported by this browser. Using demo location.');
+  document.getElementById('locationSource').textContent = '🧭 Using demo location (GPS not supported)';
   checkGeofence();
 }
-
-
 // =======================
 // 6. GEOFENCE DETECTION
 // =======================
@@ -116,37 +151,67 @@ function getDistanceInMeters(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
+// Track if we already sent an alert for the CURRENT danger zone visit,
+// so we don't spam the backend with duplicate alerts every time checkGeofence() runs.
+let alertAlreadySent = false;
+
 function checkGeofence() {
-  const distanceToDanger = getDistanceInMeters(
-    touristLat, touristLng,
-    dangerZoneCenter[0], dangerZoneCenter[1]
-  );
-
   const statusDiv = document.getElementById('status');
+  const warningBanner = document.getElementById('warningBanner');
 
-  if (distanceToDanger <= dangerZoneRadius) {
-    // Inside danger zone
+  let closestDangerDistance = Infinity;
+  let insideDangerZone = false;
+  let insideWarningBuffer = false;
+
+  // Check distance to EVERY danger zone, not just one
+  zonesData.dangerZones.forEach((zone) => {
+    const distance = getDistanceInMeters(
+      touristLat, touristLng,
+      zone.center[0], zone.center[1]
+    );
+
+    if (distance < closestDangerDistance) {
+      closestDangerDistance = distance;
+    }
+
+    if (distance <= zone.radius) {
+      insideDangerZone = true;
+    } else if (distance <= zone.radius + 200) {
+      insideWarningBuffer = true;
+    }
+  });
+
+  if (insideDangerZone) {
+    // Inside a danger zone
     statusDiv.textContent = 'Status: DANGER! You are in a restricted zone';
     statusDiv.className = 'emergency';
-    alert('⚠️ WARNING: You have entered a DANGER ZONE!');
-    sendAlertToBackend(touristLat, touristLng);
-  } else if (distanceToDanger <= dangerZoneRadius + 200) {
-    // Close to danger zone
+    warningBanner.style.display = 'block';
+
+    // Only send ONE alert per danger-zone visit, not on every check
+    if (!alertAlreadySent) {
+      sendAlertToBackend(touristLat, touristLng);
+      alertAlreadySent = true;
+    }
+  } else if (insideWarningBuffer) {
+    // Close to a danger zone
     statusDiv.textContent = 'Status: WARNING - Near a restricted zone';
     statusDiv.className = 'warning';
+    warningBanner.style.display = 'none';
+    alertAlreadySent = false; // reset, so a future danger-zone entry sends a fresh alert
   } else {
     // Safe
     statusDiv.textContent = 'Status: SAFE';
     statusDiv.className = 'safe';
+    warningBanner.style.display = 'none';
+    alertAlreadySent = false; // reset
   }
 }
 // =======================
 // 7. SEND ALERT TO BACKEND
 // =======================
 
-// This is where the backend teammate's server will run.
-// For now, we use localhost (their local test server) — we'll update this
-// once they give us the real server address.
+// ⚠️ UPDATE THIS LINE whenever your backend teammate gives you a new URL.
+// This is the ONLY place you need to change it.
 const BACKEND_URL = 'https://mocker-fasting-squealer.ngrok-free.dev/api/alerts';
 
 function sendAlertToBackend(lat, lng) {
@@ -160,6 +225,7 @@ function sendAlertToBackend(lat, lng) {
   };
 
   console.log('Sending alert to backend:', alertData);
+  updateAlertStatusUI('sending');
 
   fetch(BACKEND_URL, {
     method: 'POST',
@@ -169,13 +235,49 @@ function sendAlertToBackend(lat, lng) {
     },
     body: JSON.stringify(alertData),
   })
-    .then((response) => response.json())
+    .then((response) => {
+      if (!response.ok) {
+        // Backend responded, but with an error status (like 404 or 500)
+        throw new Error('Backend returned status ' + response.status);
+      }
+      return response.json();
+    })
     .then((data) => {
       console.log('Backend confirmed alert received:', data);
+      if (data.success) {
+        updateAlertStatusUI('success', data);
+      } else {
+        updateAlertStatusUI('failed', data);
+      }
     })
     .catch((error) => {
       console.log('Could not reach backend (this is OK for now if backend is not running yet):', error);
+      updateAlertStatusUI('offline');
     });
 }
-// Run once immediately using demo location too
-checkGeofence();
+// =======================
+// 8. SHOW ALERT STATUS ON SCREEN
+// =======================
+
+function updateAlertStatusUI(state, data) {
+  const alertStatusDiv = document.getElementById('alertStatus');
+  alertStatusDiv.style.display = 'block';
+
+  if (state === 'sending') {
+    alertStatusDiv.textContent = '📡 Sending alert to backend...';
+    alertStatusDiv.style.background = '#fff3cd';
+    alertStatusDiv.style.color = '#856404';
+  } else if (state === 'success') {
+    alertStatusDiv.textContent = '✅ Alert confirmed by backend (ID: ' + data.alertId + ')';
+    alertStatusDiv.style.background = '#d4edda';
+    alertStatusDiv.style.color = '#155724';
+  } else if (state === 'failed') {
+    alertStatusDiv.textContent = '⚠️ Backend responded but rejected the alert: ' + data.message;
+    alertStatusDiv.style.background = '#f8d7da';
+    alertStatusDiv.style.color = '#721c24';
+  } else if (state === 'offline') {
+    alertStatusDiv.textContent = '🔌 Backend not reachable (alert saved locally only)';
+    alertStatusDiv.style.background = '#e2e3e5';
+    alertStatusDiv.style.color = '#383d41';
+  }
+}

@@ -20,15 +20,17 @@
       width: 100%;
     }
     #dashboard {
-      position: absolute;
-      top: 10px;
-      left: 60px;
-      z-index: 1000;
-      background: white;
-      padding: 10px 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      font-size: 14px;
+      position: absolute !important;
+      top: 10px !important;
+      left: 60px !important;
+      z-index: 1000 !important;
+      background: white !important;
+      padding: 10px 15px !important;
+      border-radius: 8px !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+      font-size: 14px !important;
+      width: 320px !important;
+      box-sizing: border-box !important;
     }
     #status {
       font-weight: bold;
@@ -37,6 +39,59 @@
     .safe { color: green; }
     .warning { color: orange; }
     .emergency { color: red; }
+    #warningBanner {
+      display: none;
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #d32f2f;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      z-index: 2000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+    #legend {
+      position: absolute;
+      bottom: 20px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .zone-label {
+      background: rgba(255,255,255,0.85) !important;
+      border: none !important;
+      box-shadow: none !important;
+      font-weight: bold;
+      font-size: 11px;
+      padding: 2px 6px !important;
+    }
+    .safe-label {
+      color: #1a7a1a;
+    }
+    .danger-label {
+      color: #c62828;
+    }
   </style>
 </head>
 <body>
@@ -44,8 +99,15 @@
   <div id="dashboard">
     <div>Tourist Safety Dashboard</div>
     <div id="status" class="safe">Status: SAFE</div>
+    <div id="locationSource" style="font-size:11px; color:#888; margin-top:4px;"></div>
+    <div id="alertStatus" style="display:none; margin-top:8px; font-size:12px; padding:4px 8px; border-radius:4px;"></div>
   </div>
-
+  <div id="warningBanner">⚠️ WARNING: You have entered a DANGER ZONE!</div>
+ <div id="legend">
+    <div class="legend-item"><span style="width:14px;height:14px;border-radius:50%;display:inline-block;background:#3f3;border:2px solid green;forced-color-adjust:none;"></span> Safe Zone</div>
+<div class="legend-item"><span style="width:14px;height:14px;border-radius:50%;display:inline-block;background:#f33;border:2px solid red;forced-color-adjust:none;"></span> Danger Zone</div>    <div class="legend-item">🧍 Tourist Location</div>
+    <div class="legend-item">🚨 Emergency Point</div>
+  </div>
   <div id="map"></div>
 
   <!-- Leaflet JS (free, no API key needed) -->
@@ -57,4 +119,3 @@
 </body>
 </html>
 
-    
