@@ -3,6 +3,7 @@
 
 // ====== BACKEND CONFIG ======
 const BACKEND_URL = "http://localhost:3000"; // <-- paste your current ngrok URL here, no trailing slash
+let currentIncidents = []; // holds the incidents we've fetched, so we can update status locally
 
 // Fetches incidents from the backend
 async function fetchIncidents() {
@@ -20,6 +21,7 @@ async function fetchIncidents() {
     const data = await response.json();
 
     if (data.success) {
+      currentIncidents = data.incidents; // save for later status updates
       renderIncidents(data.incidents);
     } else {
       showError("Backend returned an error: " + data.message);
@@ -84,7 +86,7 @@ function renderIncidents(incidents) {
   let html = `
     <table id="incidentTable">
       <thead>
-        <tr>
+       <tr>
           <th>ID</th>
           <th>Tourist ID</th>
           <th>Type</th>
@@ -92,12 +94,20 @@ function renderIncidents(incidents) {
           <th>Coordinates</th>
           <th>Timestamp</th>
           <th>Status</th>
+          <th>Update Status</th>
         </tr>
       </thead>
       <tbody>
   `;
 
+ const statusOptions = ["CREATED", "ACKNOWLEDGED", "ASSIGNED", "RESPONDING", "RESOLVED", "CANCELLED"];
+
   incidents.forEach(incident => {
+    const colors = getStatusColor(incident.status);
+    const optionsHtml = statusOptions.map(opt =>
+      `<option value="${opt}" ${opt === incident.status ? "selected" : ""}>${opt}</option>`
+    ).join("");
+
     html += `
       <tr>
         <td>${incident.id}</td>
@@ -106,11 +116,15 @@ function renderIncidents(incidents) {
         <td>${incident.description}</td>
         <td>${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}</td>
         <td>${incident.timestamp}</td>
-        <td>${incident.status}</td>
+        <td style="background:${colors.bg}; color:${colors.text}; font-weight:bold; padding:4px 8px; border-radius:4px;">${incident.status}</td>
+        <td>
+          <select onchange="updateIncidentStatus(${incident.id}, this.value)">
+            ${optionsHtml}
+          </select>
+        </td>
       </tr>
     `;
   });
-
   html += `
       </tbody>
     </table>
@@ -120,6 +134,15 @@ function renderIncidents(incidents) {
 }
 
 // Run this when the page loads
+// Updates an incident's status locally (mock — no backend PUT route yet)
+function updateIncidentStatus(incidentId, newStatus) {
+  const incident = currentIncidents.find(i => i.id === incidentId);
+  if (!incident) return;
+
+  incident.status = newStatus;
+  renderIncidents(currentIncidents); // re-render table with updated status
+  console.log(`Incident ${incidentId} status updated to ${newStatus}`);
+}
 document.addEventListener('DOMContentLoaded', () => {
   fetchIncidents();
 });
