@@ -5,6 +5,9 @@
 const BACKEND_URL = "http://localhost:3000"; // <-- paste your current ngrok URL here, no trailing slash
 let currentIncidents = []; // holds the incidents we've fetched, so we can update status locally
 let responderAssignments = {}; // stores incidentId -> responder name (mock, frontend-only)
+
+let incidentMap = null; // Leaflet map instance
+let incidentMarkers = []; // tracks markers so we can clear/redraw them
 // Fetches incidents from the backend
 async function fetchIncidents() {
   try {
@@ -23,6 +26,7 @@ async function fetchIncidents() {
     if (data.success) {
       currentIncidents = data.incidents; // save for later status updates
       renderIncidents(data.incidents);
+      updateMapMarkers(data.incidents);
     } else {
       showError("Backend returned an error: " + data.message);
     }
@@ -145,6 +149,38 @@ function renderIncidents(incidents) {
 }
 
 // Run this when the page loads
+// Initializes the Leaflet map (called once, on page load)
+function initMap() {
+  incidentMap = L.map('incidentMap').setView([26.1445, 91.7362], 12); // default center
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(incidentMap);
+}
+
+// Clears old markers and plots current incidents on the map
+function updateMapMarkers(incidents) {
+  // Remove old markers first
+  incidentMarkers.forEach(marker => incidentMap.removeLayer(marker));
+  incidentMarkers = [];
+
+  if (incidents.length === 0) return;
+
+  incidents.forEach(incident => {
+    const marker = L.marker([incident.latitude, incident.longitude])
+      .addTo(incidentMap)
+      .bindPopup(`
+        <b>${incident.incident_type}</b><br>
+        ${incident.description}<br>
+        Status: ${incident.status}
+      `);
+    incidentMarkers.push(marker);
+  });
+
+  // Auto-fit map to show all markers
+  const group = new L.featureGroup(incidentMarkers);
+  incidentMap.fitBounds(group.getBounds().pad(0.2));
+}
 // Updates an incident's status locally (mock — no backend PUT route yet)
 function updateIncidentStatus(incidentId, newStatus) {
     // Stores a responder name for an incident locally (mock — no backend column yet)
@@ -160,5 +196,6 @@ function assignResponder(incidentId, responderName) {
   console.log(`Incident ${incidentId} status updated to ${newStatus}`);
 }
 document.addEventListener('DOMContentLoaded', () => {
+  initMap();
   fetchIncidents();
-});
+}); 
