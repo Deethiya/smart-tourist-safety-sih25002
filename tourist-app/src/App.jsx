@@ -4,6 +4,7 @@ import './App.css'
 const touristData = {
   name: "Aarav Sharma",
   id: "TID-2026-00123",
+  backendId: 3,
   nationality: "Indian",
   phone: "+91 98765 43210",
   destination: "Shillong, Meghalaya",
@@ -24,24 +25,28 @@ function App() {
   const [screen, setScreen] = useState("home")
   const [sosActive, setSosActive] = useState(false)
   const [backendAlerts, setBackendAlerts] = useState(null)
+  const [alertsLoading, setAlertsLoading] = useState(true)
   const [backendStatus, setBackendStatus] = useState("checking...")
   const [sosResponse, setSosResponse] = useState(null)
   const [voiceActive, setVoiceActive] = useState(false)
   const [voiceTranscript, setVoiceTranscript] = useState(null)
+  const [emergencyType, setEmergencyType] = useState(null)
+  const [textInput, setTextInput] = useState("")
   const [emergencyActive, setEmergencyActive] = useState(false)
- const [sosSending, setSosSending] = useState(false) 
- const [backendIncidents, setBackendIncidents] = useState(null)
- 
-
+  const [sosSending, setSosSending] = useState(false)
+  const [backendIncidents, setBackendIncidents] = useState(null)
+  const [incidentsLoading, setIncidentsLoading] = useState(true)
+  const [touristLocation, setTouristLocation] = useState(null)
+  const [locationLoading, setLocationLoading] = useState(true)
 
   useEffect(() => {
     fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/health", {
       headers: { "ngrok-skip-browser-warning": "true" },
     })
       .then((res) => res.json())
-      .then((data) => setBackendStatus("Connected ✅"))
+      .then(() => setBackendStatus("Connected ✅"))
       .catch(() => setBackendStatus("Not Connected ❌ (backend offline)"))
-  }, []) 
+  }, [])
 
   useEffect(() => {
     fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
@@ -57,46 +62,68 @@ function App() {
       .catch((err) => {
         console.log("Could not load alerts from backend, using demo alerts:", err)
       })
+      .finally(() => setAlertsLoading(false))
   }, [])
 
   useEffect(() => {
-     fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/incidents", {
-       headers: { "ngrok-skip-browser-warning": "true" },
-     })
-       .then((res) => res.json())
-       .then((data) => {
-         const incidentsArray = Array.isArray(data) ? data : data.incidents
-         if (incidentsArray && incidentsArray.length > 0) {
-           setBackendIncidents(incidentsArray)
-         }
-       })
-       .catch((err) => {
-         console.log("Could not load incidents from backend, using demo warnings:", err)
-       })
-   }, [])
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/incidents", {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const incidentsArray = Array.isArray(data) ? data : data.incidents
+        if (incidentsArray && incidentsArray.length > 0) {
+          setBackendIncidents(incidentsArray)
+        }
+      })
+      .catch((err) => {
+        console.log("Could not load incidents from backend, using demo warnings:", err)
+      })
+      .finally(() => setIncidentsLoading(false))
+  }, [])
 
-function handleSOS() {
+  useEffect(() => {
+    fetch(`https://mocker-fasting-squealer.ngrok-free.dev/api/locations/latest/${touristData.backendId}`, {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.location) {
+          setTouristLocation(data.location)
+        }
+      })
+      .catch((err) => {
+        console.log("Could not load location from backend, using demo location:", err)
+      })
+      .finally(() => setLocationLoading(false))
+  }, [])
+
+  function handleSOS() {
     setSosActive(true)
     setEmergencyActive(true)
     setSosSending(true)
 
     const alertData = {
-tourist_id: touristData.id,
+      tourist_id: touristData.backendId,
       alert_type: "SOS",
       name: touristData.name,
       location: "Shillong, Meghalaya (Demo Location)",
       message: "Emergency SOS triggered",
       time: new Date().toISOString(),
     }
-fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
       body: JSON.stringify(alertData),
     })
-.then((res) => res.json())
+      .then((res) => res.json())
       .then((data) => {
         console.log("SOS sent successfully:", data)
-        setSosResponse({ success: true, message: data.message || "Alert received. Help is on the way." })
+        if (data.success === false || data.error) {
+          setSosResponse({ success: false, message: data.message || data.error || "Could not send alert." })
+        } else {
+          setSosResponse({ success: true, message: data.message || "Alert received. Help is on the way." })
+        }
         setSosSending(false)
       })
       .catch((err) => {
@@ -106,18 +133,73 @@ fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
       })
 
     setTimeout(() => setSosActive(false), 3000)
+  }
+
+  function detectEmergencyType(text) {
+    const t = text.toLowerCase()
+    if (t.includes("medical") || t.includes("sick") || t.includes("pain") || t.includes("hurt") || t.includes("injured")) return "Medical"
+    if (t.includes("accident") || t.includes("crash") || t.includes("fall") || t.includes("fell")) return "Accident"
+    if (t.includes("lost") || t.includes("don't know where")) return "Lost tourist"
+    if (t.includes("danger") || t.includes("unsafe") || t.includes("scared") || t.includes("afraid") || t.includes("threat") || t.includes("help")) return "Unsafe situation"
+    return "Other"
+  }
+
+  function speakResponse(text) {
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      window.speechSynthesis.speak(utterance)
     }
-function handleVoiceSOS() {
+  }
+
+  function sendVoiceAlert(spokenText) {
+    const detectedType = detectEmergencyType(spokenText)
+    setEmergencyType(detectedType)
+
+    const voiceAlertData = {
+      tourist_id: touristData.backendId,
+      alert_type: detectedType,
+      name: touristData.name,
+      location: "Shillong, Meghalaya (Demo Location)",
+      message: spokenText || "Voice SOS triggered",
+      time: new Date().toISOString(),
+    }
+
+    fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+      body: JSON.stringify(voiceAlertData),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Voice SOS sent successfully:", data)
+        if (data.success === false || data.error) {
+          setSosResponse({ success: false, message: data.message || data.error || "Could not send voice alert." })
+          speakResponse("Sorry, we could not send your alert. Please try again.")
+        } else {
+          const msg = data.message || "Voice alert received. Help is on the way."
+          setSosResponse({ success: true, message: msg })
+          speakResponse(`Emergency type ${detectedType} detected. ${msg}`)
+        }
+      })
+      .catch((err) => {
+        console.log("Voice SOS could not reach backend:", err)
+        setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
+        speakResponse("Could not reach the server. Your alert has been saved and will retry.")
+      })
+  }
+
+  function handleVoiceSOS() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
     if (!SpeechRecognition) {
-      setVoiceTranscript("Voice recognition not supported in this browser. Please use Chrome.")
+      setVoiceTranscript("Voice recognition not supported in this browser. Please use Chrome or Edge, or type below.")
       return
     }
 
     setVoiceActive(true)
     setEmergencyActive(true)
     setVoiceTranscript("🎙️ Listening...")
+    setEmergencyType(null)
 
     const recognition = new SpeechRecognition()
     recognition.lang = "en-IN"
@@ -126,40 +208,16 @@ function handleVoiceSOS() {
 
     recognition.onresult = (event) => {
       const spokenText = event.results[0][0].transcript
-
       setVoiceTranscript(`You said: "${spokenText}"`)
-
-      const voiceAlertData = {
-        tourist_id: touristData.id,
-        alert_type: "voice",
-        name: touristData.name,
-        location: "Shillong, Meghalaya (Demo Location)",
-        message: spokenText || "Voice SOS triggered",
-        time: new Date().toISOString(),
-      }
-
-      fetch("https://mocker-fasting-squealer.ngrok-free.dev/api/alerts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-        body: JSON.stringify(voiceAlertData),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("Voice SOS sent successfully:", data)
-          setSosResponse({ success: true, message: data.message || "Voice alert received. Help is on the way." })
-        })
-        .catch((err) => {
-          console.log("Voice SOS could not reach backend:", err)
-          setSosResponse({ success: false, message: "Could not reach server. Voice alert saved locally, will retry." })
-        })
+      sendVoiceAlert(spokenText)
     }
 
     recognition.onerror = (event) => {
-     console.log("Speech recognition error:", event.error)
-     if (event.error !== "aborted") {
-       setVoiceTranscript("Could not hear you clearly. Please try again.")
-     }
-   }
+      console.log("Speech recognition error:", event.error)
+      if (event.error !== "aborted") {
+        setVoiceTranscript("Could not hear you clearly. Please try again or type below.")
+      }
+    }
 
     recognition.onend = () => {
       setVoiceActive(false)
@@ -169,6 +227,20 @@ function handleVoiceSOS() {
 
     setTimeout(() => setEmergencyActive(false), 5000)
   }
+
+  function handleTextSubmit() {
+    if (!textInput.trim()) return
+    setVoiceTranscript(`You typed: "${textInput}"`)
+    setEmergencyActive(true)
+    setEmergencyType(null)
+    sendVoiceAlert(textInput)
+    setTextInput("")
+    setTimeout(() => setEmergencyActive(false), 5000)
+  }
+
+  const mapSrc = touristLocation
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${touristLocation.longitude - 0.03},${touristLocation.latitude - 0.03},${touristLocation.longitude + 0.03},${touristLocation.latitude + 0.03}&marker=${touristLocation.latitude},${touristLocation.longitude}`
+    : "https://www.openstreetmap.org/export/embed.html?bbox=91.85,25.55,91.93,25.61&marker=25.5788,91.8933"
 
   return (
     <div className="app">
@@ -199,7 +271,7 @@ function handleVoiceSOS() {
               {sosActive ? "ALERT SENT ✔" : sosSending ? "Sending..." : "SOS"}
             </button>
             <p className="sos-hint">Press in case of emergency</p>
-           <button
+            <button
               className={`voice-button ${voiceActive ? "voice-active" : ""}`}
               onClick={handleVoiceSOS}
             >
@@ -207,10 +279,24 @@ function handleVoiceSOS() {
             </button>
             <p className="sos-hint">Tap and speak your emergency</p>
 
-<div className="card voice-placeholder">
+            <div className="card voice-placeholder">
               <h3>🎙️ Voice Emergency Module</h3>
               <div className="map-box">
                 {voiceTranscript || "Tap \"Voice SOS\" above and speak your emergency"}
+              </div>
+              {emergencyType && (
+                <p><strong>Detected Emergency:</strong> {emergencyType}</p>
+              )}
+              <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+            <input
+                  type="text"
+                  id="textInput"
+                  placeholder="Or type your emergency, e.g. I am lost"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                />
+                <button onClick={handleTextSubmit} className="call-btn">Send</button>
               </div>
             </div>
 
@@ -222,14 +308,28 @@ function handleVoiceSOS() {
 
             <div className="card">
               <h3>🔌 Backend Status</h3>
-              <p>{backendStatus}</p>
+              <p className={backendStatus === "checking..." ? "loading-text" : ""}>{backendStatus}</p>
             </div>
-            <div className="card">
-     <h3>📍 Current Location</h3>
-     <p>Shillong, Meghalaya (Demo Location)</p>
-   </div>
 
-  <div className="card map-placeholder">
+            <div className="card">
+              <h3>📍 Current Location</h3>
+              {locationLoading ? (
+                <p className="loading-text">Loading location...</p>
+              ) : touristLocation ? (
+                <>
+                  <p>
+                    Lat: {touristLocation.latitude}, Lng: {touristLocation.longitude}
+                  </p>
+                  <p className="map-note">
+                    Last updated: {touristLocation.timestamp ? new Date(touristLocation.timestamp).toLocaleString() : ""}
+                  </p>
+                </>
+              ) : (
+                <p>Shillong, Meghalaya (Demo Location)</p>
+              )}
+            </div>
+
+            <div className="card map-placeholder">
               <h3>🗺️ Live Map</h3>
               {emergencyActive && (
                 <div className="map-alert-text">📍 Alert location marked on map</div>
@@ -238,31 +338,39 @@ function handleVoiceSOS() {
                 title="Tourist Location Map"
                 className="live-map-frame"
                 loading="lazy"
-                src="https://www.openstreetmap.org/export/embed.html?bbox=91.85,25.55,91.93,25.61&marker=25.5788,91.8933"
+                src={mapSrc}
               ></iframe>
               <p className="map-note">
-                Demo location: Shillong, Meghalaya — will be replaced with live GPS + geofencing from feature/maps-geofence-dashboard
+                {locationLoading
+                  ? "Loading map location..."
+                  : touristLocation
+                  ? "Live location from backend"
+                  : "Demo location: Shillong, Meghalaya — will be replaced with live GPS + geofencing from feature/maps-geofence-dashboard"}
               </p>
             </div>
 
-<div className="card">
+            <div className="card">
               <h3>🔔 Recent Alerts</h3>
-              {backendAlerts
-                ? backendAlerts.slice(0, 5).map((alert, i) => (
-                    <div key={alert.id || i} className="alert-item">
-                      <strong>{alert.alert_type || alert.type || "Alert"}:</strong>{" "}
-                      {alert.message}
-                      <div className="alert-time">
-                        {alert.time ? new Date(alert.time).toLocaleString() : ""}
-                      </div>
+              {alertsLoading ? (
+                <p className="loading-text">Loading alerts...</p>
+              ) : backendAlerts ? (
+                backendAlerts.slice(0, 5).map((alert, i) => (
+                  <div key={alert.id || i} className="alert-item">
+                    <strong>{alert.alert_type || alert.type || "Alert"}:</strong>{" "}
+                    {alert.message}
+                    <div className="alert-time">
+                      {alert.time ? new Date(alert.time).toLocaleString() : ""}
                     </div>
-                  ))
-                : recentAlerts.map((alert) => (
-                    <div key={alert.id} className="alert-item">
-                      <strong>{alert.type}:</strong> {alert.message}
-                      <div className="alert-time">{alert.time}</div>
-                    </div>
-                  ))}
+                  </div>
+                ))
+              ) : (
+                recentAlerts.map((alert) => (
+                  <div key={alert.id} className="alert-item">
+                    <strong>{alert.type}:</strong> {alert.message}
+                    <div className="alert-time">{alert.time}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -275,23 +383,25 @@ function handleVoiceSOS() {
               <p className="safety-score">85 / 100</p>
               <p>You are in a generally safe zone.</p>
             </div>
-           <div className="card">
-                <h3>⚠️ Warnings</h3>
-                {backendIncidents && backendIncidents.filter((i) => i.status === "open").length > 0 ? (
-                  backendIncidents
-                    .filter((i) => i.status === "open")
-                    .map((incident) => (
-                      <div key={incident.id} className="alert-item">
-                        <strong>{incident.incident_type}:</strong> {incident.description}
-                        <div className="alert-time">
-                          {incident.timestamp ? new Date(incident.timestamp).toLocaleString() : ""}
-                        </div>
+            <div className="card">
+              <h3>⚠️ Warnings</h3>
+              {incidentsLoading ? (
+                <p className="loading-text">Loading warnings...</p>
+              ) : backendIncidents && backendIncidents.filter((i) => i.status === "open").length > 0 ? (
+                backendIncidents
+                  .filter((i) => i.status === "open")
+                  .map((incident) => (
+                    <div key={incident.id} className="alert-item">
+                      <strong>{incident.incident_type}:</strong> {incident.description}
+                      <div className="alert-time">
+                        {incident.timestamp ? new Date(incident.timestamp).toLocaleString() : ""}
                       </div>
-                    ))
-                ) : (
-                  <p>No active warnings for your area.</p>
-                )}
-              </div>
+                    </div>
+                  ))
+              ) : (
+                <p>No active warnings for your area.</p>
+              )}
+            </div>
           </div>
         )}
 
