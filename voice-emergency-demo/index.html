@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Emergency Voice Assistant - Demo</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #1a1a2e;
+    color: white;
+    text-align: center;
+    padding: 40px;
+  }
+  h1 {
+    color: #ff4d4d;
+  }
+  #sosBtn {
+    background: red;
+    color: white;
+    font-size: 24px;
+    padding: 20px 40px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  #sosBtn:hover {
+    background: darkred;
+  }
+  #status {
+    margin-top: 30px;
+    font-size: 18px;
+    min-height: 30px;
+  }
+  #result {
+    margin-top: 20px;
+    padding: 20px;
+    background: #16213e;
+    border-radius: 10px;
+    display: none;
+  }
+  .emergency-type {
+    font-size: 22px;
+    font-weight: bold;
+    color: #ffcc00;
+  }
+</style>
+</head>
+<body>
+
+  <h1>🚨 Emergency Voice Assistant</h1>
+  <p>Press the button and speak your emergency — or type below if voice isn't available</p>
+  <p style="font-size: 13px; color: #999; max-width: 500px; margin: 10px auto;">⚠️ This is a prototype demonstration for SIH25002. It is NOT a real emergency service. In a real emergency, contact local authorities directly.</p>
+
+  <button id="sosBtn">🎤 PRESS FOR SOS</button>
+
+  <div id="status">Waiting...</div>
+
+  <div id="result">
+    <p><strong>You said:</strong> <span id="heardText"></span></p>
+    <p><strong>Detected Emergency:</strong> <span id="emergencyType" class="emergency-type"></span></p>
+    <p><strong>System Response:</strong> <span id="responseText"></span></p>
+  </div>
+
+  <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #444;">
+    <p style="font-size: 16px; color: #ccc;">Voice not working? Type your emergency instead:</p>
+    <input type="text" id="textInput" placeholder="e.g. I am lost" style="padding: 10px; width: 250px; border-radius: 8px; border: none; font-size: 16px;">
+    <button id="textSubmitBtn" style="padding: 10px 20px; border-radius: 8px; border: none; background: #ff4d4d; color: white; font-size: 16px; cursor: pointer; margin-left: 10px;">Send</button>
+  </div>
+
+<script>
+  const sosBtn = document.getElementById('sosBtn');
+  const statusDiv = document.getElementById('status');
+  const resultDiv = document.getElementById('result');
+  const heardText = document.getElementById('heardText');
+  const emergencyType = document.getElementById('emergencyType');
+  const responseText = document.getElementById('responseText');
+
+  // Check if browser supports Speech Recognition
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    statusDiv.innerText = "❌ Sorry, your browser does not support Speech Recognition. Please use Google Chrome.";
+    sosBtn.disabled = true;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  sosBtn.addEventListener('click', () => {
+    resultDiv.style.display = 'none';
+    statusDiv.innerText = "🎙️ Listening... Please speak now.";
+    recognition.start();
+  });
+
+  // ============================================
+  // 🔌 REUSABLE FUNCTION FOR FRONTEND TEAM
+  // Call startVoiceEmergency() from anywhere to
+  // trigger the voice emergency detection flow.
+  // ============================================
+  function startVoiceEmergency() {
+    resultDiv.style.display = 'none';
+    statusDiv.innerText = "🎙️ Listening... Please speak now.";
+    recognition.start();
+  }
+
+  recognition.addEventListener('result', (event) => {
+    const transcript = event.results[0][0].transcript;
+    heardText.innerText = transcript;
+
+    const detected = detectEmergency(transcript.toLowerCase());
+    emergencyType.innerText = detected.type;
+    responseText.innerText = detected.response;
+
+    statusDiv.innerText = "✅ Emergency Detected!";
+    resultDiv.style.display = 'block';
+
+// Build the alert object (a small package of data)
+    const alertObject = {
+      alert_type: detected.type,
+      tourist_id: "demo-tourist-001",
+      message: transcript
+    };
+
+    console.log("Alert ready to send:", alertObject);
+    
+    // Send the alert to the backend
+    const BACKEND_URL = "https://mocker-fasting-squealer.ngrok-free.dev/api/alerts";
+
+    fetch(BACKEND_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(alertObject)
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Backend response:", data);
+        statusDiv.innerText = "✅ Alert sent to backend successfully!";
+        speak("Your emergency alert has been received.");
+      })
+      .catch(error => {
+        console.log("Backend not reachable:", error.message);
+        statusDiv.innerText = "⚠️ Backend not connected (check server is running).";
+      });
+      
+      speak(detected.response);
+  });
+
+  // ============================================
+  // 🔌 REUSABLE FUNCTION - Handles both voice AND typed text
+  // This does the same job as the voice result handler above,
+  // but works with any text (typed or spoken).
+  // ============================================
+  function processEmergencyText(transcript) {
+    heardText.innerText = transcript;
+
+    const detected = detectEmergency(transcript.toLowerCase());
+    emergencyType.innerText = detected.type;
+    responseText.innerText = detected.response;
+
+    statusDiv.innerText = "✅ Emergency Detected!";
+    resultDiv.style.display = 'block';
+
+    const alertObject = {
+      alert_type: detected.type,
+      tourist_id: "demo-tourist-001",
+      message: transcript
+    };
+
+    console.log("Alert ready to send:", alertObject);
+
+    const BACKEND_URL = "https://mocker-fasting-squealer.ngrok-free.dev/api/alerts";
+
+    fetch(BACKEND_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(alertObject)
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Backend response:", data);
+        statusDiv.innerText = "✅ Alert sent to backend successfully!";
+        speak("Your emergency alert has been received.");
+      })
+      .catch(error => {
+        console.log("Backend not reachable:", error.message);
+        statusDiv.innerText = "⚠️ Backend not connected (check server is running).";
+      });
+
+    speak(detected.response);
+  }
+
+  // Connect the "Send" button to this same logic
+  const textInput = document.getElementById('textInput');
+  const textSubmitBtn = document.getElementById('textSubmitBtn');
+
+  textSubmitBtn.addEventListener('click', () => {
+    const typedText = textInput.value.trim();
+    if (typedText === "") {
+      statusDiv.innerText = "⚠️ Please type something first.";
+      return;
+    }
+    resultDiv.style.display = 'none';
+    processEmergencyText(typedText);
+    textInput.value = "";
+  });
+
+recognition.addEventListener('error', (event) => {
+    let friendlyMessage = "⚠️ Something went wrong. Please try again.";
+
+    if (event.error === "not-allowed" || event.error === "permission-denied") {
+      friendlyMessage = "🎤 Microphone access was blocked. Please allow microphone permissions in your browser and try again.";
+    } else if (event.error === "no-speech") {
+      friendlyMessage = "🔇 No speech detected. Please try again and speak clearly.";
+    } else if (event.error === "audio-capture") {
+      friendlyMessage = "🎤 No microphone was found. Please connect a microphone and try again.";
+    } else if (event.error === "network") {
+      friendlyMessage = "🌐 Network error. Please check your internet connection.";
+    }
+
+    statusDiv.innerText = friendlyMessage;
+  });
+
+  recognition.addEventListener('end', () => {
+    if (statusDiv.innerText === "🎙️ Listening... Please speak now.") {
+      statusDiv.innerText = "No speech detected. Try again.";
+    }
+  });
+
+  // Simple rule-based emergency classifier
+  function detectEmergency(text) {
+    if (text.includes("accident") || text.includes("crash") || text.includes("collision")) {
+      return {
+        type: "ACCIDENT",
+        response: "Accident alert sent! Please stay calm. Emergency responders are being notified of your location."
+      };
+    }
+    if (text.includes("danger") || text.includes("attack") || text.includes("unsafe") || text.includes("threat")) {
+      return {
+        type: "DANGER",
+        response: "Danger alert sent! Stay calm, help is on the way. Please move to a safe location if possible."
+      };
+    }
+    if (text.includes("medical") || text.includes("hurt") || text.includes("injured") || text.includes("sick") || text.includes("pain") || text.includes("doctor")) {
+      return {
+        type: "MEDICAL",
+        response: "Medical alert sent! Please stay where you are. Emergency responders are being notified."
+      };
+    }
+    if (text.includes("lost")) {
+      return {
+        type: "LOST",
+        response: "Your location is being sent to the nearest help center. Please stay where you are."
+      };
+    }
+    if (text.includes("help") || text.includes("emergency") || text.includes("sos")) {
+      return {
+        type: "GENERAL EMERGENCY",
+        response: "SOS Alert triggered! Your emergency contact and authorities are being notified immediately."
+      };
+    }
+    return {
+      type: "UNKNOWN - Please try again",
+      response: "Sorry, I did not understand the emergency. Please say something like 'I need help' or 'I am in danger'."
+    };
+  }
+
+  // Text to speech
+  function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  }
+</script>
+
+</body>
+</html>
