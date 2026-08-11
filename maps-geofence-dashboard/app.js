@@ -212,17 +212,16 @@ function checkGeofence() {
 
 // ⚠️ UPDATE THIS LINE whenever your backend teammate gives you a new URL.
 // This is the ONLY place you need to change it.
-const BACKEND_URL = 'https://mocker-fasting-squealer.ngrok-free.dev/api/alerts';
-
+const BACKEND_URL = 'http://localhost:3000/api/incidents';
 function sendAlertToBackend(lat, lng) {
   // Build the alert object (a simple package of data)
-  const alertData = {
-    alert_type: 'geofence',
-    tourist_id: 'demo-tourist-001',
-    message: 'Tourist entered danger zone',
-    latitude: lat,
-    longitude: lng,
-  };
+const alertData = {
+  incident_type: 'geofence',
+  tourist_id: 1,
+  description: 'Tourist entered danger zone',
+  latitude: lat,
+  longitude: lng,
+};
 
   console.log('Sending alert to backend:', alertData);
   updateAlertStatusUI('sending');
@@ -268,7 +267,7 @@ function updateAlertStatusUI(state, data) {
     alertStatusDiv.style.background = '#fff3cd';
     alertStatusDiv.style.color = '#856404';
   } else if (state === 'success') {
-    alertStatusDiv.textContent = '✅ Alert confirmed by backend (ID: ' + data.alertId + ')';
+    alertStatusDiv.textContent = '✅ Alert confirmed by backend (ID: ' + data.incidentId + ')';
     alertStatusDiv.style.background = '#d4edda';
     alertStatusDiv.style.color = '#155724';
   } else if (state === 'failed') {
