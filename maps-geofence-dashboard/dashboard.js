@@ -4,7 +4,7 @@
 // ====== BACKEND CONFIG ======
 const BACKEND_URL = "http://localhost:3000"; // <-- paste your current ngrok URL here, no trailing slash
 let currentIncidents = []; // holds the incidents we've fetched, so we can update status locally
-
+let responderAssignments = {}; // stores incidentId -> responder name (mock, frontend-only)
 // Fetches incidents from the backend
 async function fetchIncidents() {
   try {
@@ -86,7 +86,7 @@ function renderIncidents(incidents) {
   let html = `
     <table id="incidentTable">
       <thead>
-       <tr>
+<tr>
           <th>ID</th>
           <th>Tourist ID</th>
           <th>Type</th>
@@ -95,6 +95,8 @@ function renderIncidents(incidents) {
           <th>Timestamp</th>
           <th>Status</th>
           <th>Update Status</th>
+          <th>Responder</th>
+        </tr>
         </tr>
       </thead>
       <tbody>
@@ -122,6 +124,15 @@ function renderIncidents(incidents) {
             ${optionsHtml}
           </select>
         </td>
+        <td>
+          <input
+            type="text"
+            placeholder="Assign officer..."
+            value="${responderAssignments[incident.id] || ''}"
+            onchange="assignResponder(${incident.id}, this.value)"
+            style="padding:4px; width:120px;"
+          />
+        </td>
       </tr>
     `;
   });
@@ -136,6 +147,11 @@ function renderIncidents(incidents) {
 // Run this when the page loads
 // Updates an incident's status locally (mock — no backend PUT route yet)
 function updateIncidentStatus(incidentId, newStatus) {
+    // Stores a responder name for an incident locally (mock — no backend column yet)
+function assignResponder(incidentId, responderName) {
+  responderAssignments[incidentId] = responderName;
+  console.log(`Incident ${incidentId} assigned to: ${responderName}`);
+}
   const incident = currentIncidents.find(i => i.id === incidentId);
   if (!incident) return;
 
